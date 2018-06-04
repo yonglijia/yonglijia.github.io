@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top">
+<head>
+    <meta charset="utf-8">
+<title>webpack externals深入理解 - Hexo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.css">
+
+
+
+
+
+
+<link rel="icon" href="/favicon.png">
+
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Ovo|Source+Code+Pro">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css">
+
+
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/css/lightgallery.min.css">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.6.5/css/justifiedGallery.min.css">
+
+
+<link rel="stylesheet" href="/css/style.css">
+<script defer src="//use.fontawesome.com/releases/v5.0.8/js/all.js"></script>
+
+</head>
+<body>
+    
+<nav class="navbar is-transparent is-fixed-top navbar-main" role="navigation" aria-label="main navigation">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item navbar-logo" href="/">
+                
+                <img src="/images/logo.png" alt="" height="28">
+                
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="navbar-menu navbar-start">
+            
+            <a class="navbar-item "
+               href="/archives">归档</a>
+            
+            <a class="navbar-item "
+               href="/categories/technology">技术</a>
+            
+            <a class="navbar-item "
+               href="/categories/life">生活</a>
+            
+            <a class="navbar-item "
+               href="/tags">标签</a>
+            
+            <a class="navbar-item "
+               href="/about">关于</a>
+            
+        </div>
+        
+        <div class="navbar-menu navbar-end">
+            
+            <a class="navbar-item search" href="javascript:;">
+                <i class="fas fa-search"></i>
+            </a>
+            
+            
+            
+            <a class="navbar-item" href="https://github.com/yonglijia">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+               
+            
+        </div>
+    </div>
+</nav>
+
+    <section class="section">
+    <div class="container">
+    <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
+            webpack externals深入理解
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-06-04T18:32:05.000Z" itemprop="datePublished">4 分钟前</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/technology/">technology</a>
+        </span>
+        
+        
+        <span class="column is-narrow">
+            
+            
+            12 分钟 读完 (约 1786 字)
+        </span>
+        
+    </div>
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <p>按照官方文档的解释，如果我们想引用一个库，但是又不想让webpack打包，并且又不影响我们在程序中以CMD、AMD或者window/global全局等方式进行使用，那就可以通过配置externals。这个功能主要是用在创建一个库的时候用的，但是也可以在我们项目开发中充分使用。</p>
+<p>假设：我们开发了一个自己的库，里面引用了lodash这个包，经过webpack打包的时候，发现如果把这个lodash包打入进去，打包文件就会非常大。那么我们就可以externals的方式引入。也就是说，自己的库本身不打包这个lodash，需要用户环境提供。</p>
+<p>使用lodash</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> _ <span class="keyword">from</span> <span class="string">'lodash'</span>;</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+<p>配置externals</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">externals: &#123;</span><br><span class="line">  <span class="string">"lodash"</span>: &#123;</span><br><span class="line">    	commonjs: <span class="string">"lodash"</span>,<span class="comment">//如果我们的库运行在Node.js环境中，import _ from 'lodash'等价于const _ = require('lodash')</span></span><br><span class="line">        commonjs2: <span class="string">"lodash"</span>,<span class="comment">//同上</span></span><br><span class="line">        amd: <span class="string">"lodash"</span>,<span class="comment">//如果我们的库使用require.js等加载,等价于 define(["lodash"], factory);</span></span><br><span class="line">        root: <span class="string">"_"</span><span class="comment">//如果我们的库在浏览器中使用，需要提供一个全局的变量‘_’，等价于 var _ = (window._) or (_);</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>总得来说，externals配置就是为了使<code>import _ from &#39;lodash&#39;</code>这句代码，在本身不引入lodash的情况下，能够在各个环境都能解释执行。</p>
+</blockquote>
+<p>有一点需要注意的是，假如lodash中在浏览器环境中不提供<code>_</code>的全局变量，那么就没有办法使用。这个”_”是不能随便乱写的。如果外部库lodash提供的是全局变量<code>lodash</code>,那你就得使用<code>lodash</code>。</p>
+<blockquote>
+<p>如果你写的库要支持各种环境，你需要设置output中的libraryTarget为umd，也就是将打包的文件，生成为umd规范，适用于各种环境。libraryTarget和externals有藕断丝连的关系，后面会提到。</p>
+</blockquote>
+<p>下面进入正题，externals的配置有以下几种：array , object ,reg。这三种形式都可以传入，前者其实是对后者的包含。</p>
+<p><a href="http://www.tangshuang.net/3343.html" target="_blank" rel="noopener">参考这里</a></p>
+<h3 id="Array"><a href="#Array" class="headerlink" title="Array"></a>Array</h3><p>数组内的每一个元素又可以是多种形式，包括object, reg, function, string</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">externals: [</span><br><span class="line">    &#123; <span class="comment">// ① object形式</span></span><br><span class="line">      	jquery: <span class="string">'jQuery'</span>, <span class="comment">// </span></span><br><span class="line">        a: <span class="literal">false</span>, <span class="comment">// 不是external，配置错误</span></span><br><span class="line">        b: <span class="literal">true</span>, <span class="comment">// b 是 external， `module.exports = b`，适用于你所引用的库暴露出的变量和你所使用的库的名称一致的情况，比如moment</span></span><br><span class="line">        <span class="string">"./c"</span>: <span class="string">"c"</span>, <span class="comment">// "./c" 是 external `module.exports = c`</span></span><br><span class="line">        <span class="string">"./d"</span>: <span class="string">"var d"</span>, <span class="comment">// "./d" 是 external `module.exports = ./d`  语法错误</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"commonjs2 ./a/b"</span>, <span class="comment">// "./f" 是 external `module.exports = require("./a/b")`</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"commonjs ./a/b"</span>, <span class="comment">// ...和 commonjs2一样</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"this ./a/b"</span>, <span class="comment">// "./f" 是 external `(function() &#123; module.exports = this["./a/b"]; &#125;())`</span></span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="comment">// abc -&gt; require("abc")</span></span><br><span class="line">    /^[a-z\<span class="number">-0</span><span class="number">-9</span>]+$/, <span class="comment">// ② reg形式</span></span><br><span class="line">    <span class="function"><span class="keyword">function</span>(<span class="params">context, request, callback</span>) </span>&#123; <span class="comment">// ③ function形式</span></span><br><span class="line">        <span class="comment">// Every module prefixed with "global-" becomes external</span></span><br><span class="line">        <span class="comment">// "global-abc" -&gt; abc</span></span><br><span class="line">        <span class="keyword">if</span>(<span class="regexp">/^global-/</span>.test(request))</span><br><span class="line">            <span class="keyword">return</span> callback(<span class="literal">null</span>, <span class="string">"var "</span> + request.substr(<span class="number">7</span>));</span><br><span class="line">        callback();</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">"./e"</span> <span class="comment">// "./e" 是 external ( require("./e") ) // ④ string形式</span></span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<h3 id="Object"><a href="#Object" class="headerlink" title="Object"></a>Object</h3><p>Object形式和上面类似，但是它里面一定是key: value的形式，所以像上面那种string的形式就不可能出现在object形式中。这种情况下使用的最多。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">externals:&#123; </span><br><span class="line">      	jquery: <span class="string">'jQuery'</span>, <span class="comment">// </span></span><br><span class="line">        a: <span class="literal">false</span>, <span class="comment">// 不是external，配置错误</span></span><br><span class="line">        b: <span class="literal">true</span>, <span class="comment">// b 是 external， `module.exports = b`，适用于你所引用的库暴露出的变量和你所使用的库的名称一致的情况，比如moment</span></span><br><span class="line">        <span class="string">"./c"</span>: <span class="string">"c"</span>, <span class="comment">// "./c" 是 external `module.exports = c`</span></span><br><span class="line">        <span class="string">"./d"</span>: <span class="string">"var d"</span>, <span class="comment">// "./d" 是 external `module.exports = ./d`  语法错误</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"commonjs2 ./a/b"</span>, <span class="comment">// "./f" 是 external `module.exports = require("./a/b")`</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"commonjs ./a/b"</span>, <span class="comment">// ...和 commonjs2一样</span></span><br><span class="line">        <span class="string">"./f"</span>: <span class="string">"this ./a/b"</span>, <span class="comment">// "./f" 是 external `(function() &#123; module.exports = this["./a/b"]; &#125;())`</span></span><br><span class="line">    &#125;,</span><br></pre></td></tr></table></figure>
+<p>reg就不介绍了，也就是正则匹配的形式。可以类比Array类型中的string。</p>
+<p>externals引入jquery后，那么不管在代码中使用<code>import $ from &#39;jquery&#39;</code>还是<code>var $ = require(&#39;jquery&#39;);</code>,这些代码都能在浏览器中很好的执行。这很好的验证了使用externals的情况。</p>
+<blockquote>
+<p>想引用一个库，但是又不想让webpack打包，并且又不影响我们在程序中以CMD、AMD或者window/global全局等方式进行使用</p>
+</blockquote>
+<p>那如果想要这样使用<code>import $ from &#39;jquery&#39;</code>，并且想在Node环境中使用，那么就必须要使用这样<code>jquery: &#39;commonjs2 jquery&#39;</code>使用。这样webpack就会把你所需要的模块打包成<code>module.exports = require(&#39;jquery&#39;)</code>，可以再Node环境中使用。</p>
+<p><code>externals</code> 支持以下模块上下文(module context)</p>
+<ul>
+<li><strong>global</strong> - 外部 library 能够作为全局变量使用。用户可以通过在 script 标签中引入来实现。这是 externals 的默认设置。</li>
+<li><strong>commonjs</strong> - 用户(consumer)应用程序可能使用 CommonJS 模块系统，因此外部 library 应该使用 CommonJS 模块系统，并且应该是一个 CommonJS 模块。</li>
+<li><strong>commonjs2</strong> - 类似上面几行，但导出的是 <code>module.exports.default</code>。</li>
+<li><strong>amd</strong> - 类似上面几行，但使用 AMD 模块系统。</li>
+</ul>
+<h3 id="不同环境设置externals方式"><a href="#不同环境设置externals方式" class="headerlink" title="不同环境设置externals方式"></a>不同环境设置externals方式</h3><ol>
+<li>如果你的代码想运行在Node环境中，那么你需要在external中添加前缀commonjs2或者commonjs</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">externals:&#123;</span><br><span class="line">  react:<span class="string">'commonjs2 react'</span>,</span><br><span class="line">  jquery:<span class="string">'commonjs2 jquery'</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>如果需要requirejs等符合AMD规范的环境中加载，那就要添加amd</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">externals:&#123;</span><br><span class="line">  react:<span class="string">'amd React'</span>,</span><br><span class="line">  jquery:<span class="string">'amd jQuery'</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>如果要在浏览器中运行，那么不用添加什么前缀，默认设置就是global。</li>
+</ol>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">externals:&#123;</span><br><span class="line">  react:<span class="string">'React'</span>,</span><br><span class="line">  jquery:<span class="string">'jQuery'</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>也可以这样</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">externals:[&quot;React&quot;,&quot;jQuery&quot;]</span><br></pre></td></tr></table></figure>
+<p>这种方式配置下，就是配置你所引用你的库暴露出的全局变量。上面两种模式下或者说，如果你想运行代码在浏览器中，你所引用的包，必须暴露出一个全局变量。如果没有，这种方式不适合在浏览器下使用，可以尝试dll的方式。</p>
+<p>这里你可以看出，不同模式下，value是不一样的。2，3模式下，是要引入去全局变量，1模式是要加载包名。那如果这个包的包名和在浏览器下引入的全局变量一致，上面就可以写成一样了，比如moment。</p>
+<h3 id="externals和libraryTarget的关系"><a href="#externals和libraryTarget的关系" class="headerlink" title="externals和libraryTarget的关系"></a><code>externals</code>和<code>libraryTarget</code>的关系</h3><ul>
+<li>libraryTarget配置如何暴露 library。如果不设置library,那这个library就不暴露。就相当于一个自执行函数</li>
+<li>externals是决定的是以哪种模式去加载所引入的额外的包</li>
+<li>libraryTarget决定了你的library运行在哪个环境，哪个环境也就决定了你哪种模式去加载所引入的额外的包。也就是说，externals应该和libraryTarget保持一致。library运行在浏览器中的，你设置externals的模式为commonjs，那代码肯定就运行不了了。</li>
+<li>如果是应用程序开发，一般是运行在浏览器环境libraryTarget可以不设置，externals默认的模式是global，也就是以全局变量的模式加载所引入外部的库。</li>
+</ul>
+<p>参考：</p>
+<p><a href="http://www.css88.com/doc/webpack2/guides/author-libraries" target="_blank" rel="noopener">http://www.css88.com/doc/webpack2/guides/author-libraries</a></p>
+<p><a href="http://www.css88.com/doc/webpack2/configuration/externals" target="_blank" rel="noopener">http://www.css88.com/doc/webpack2/configuration/externals</a></p>
+<p><a href="http://www.tangshuang.net/3343.html" target="_blank" rel="noopener">http://www.tangshuang.net/3343.html</a></p>
+
+    
+    </div>
+    
+    <div class="columns is-variable is-1 is-multiline is-mobile">
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/JavaScript/">#JavaScript</a></span>
+    
+        <span class="column is-narrow"><a class="tag is-light article-tag" href="/tags/webpack/">#webpack</a></span>
+    
+    </div>
+    
+    
+    <div class="columns is-mobile is-multiline article-nav">
+        <span class="column is-12-mobile is-half-desktop is-hidden-mobile article-nav-prev">
+            
+        </span>
+        <span class="column is-12-mobile is-half-desktop  article-nav-next">
+            
+            <a href="/2018/06/05/prototype-chain/">深入理解原型原型链</a>
+            
+        </span>
+    </div>
+    
+</article>
+
+
+
+
+<div class="comments">
+    <h3 class="title is-4">评论</h3>
+    
+<div id="comment-container"></div>
+<link rel="stylesheet" href="https://imsun.github.io/gitment/style/default.css">
+<script src="https://imsun.github.io/gitment/dist/gitment.browser.js"></script>
+<script>
+	var gitment = new Gitment({
+		id: '2018/06/05/webpack-externals/',
+		owner: 'yonglijia',
+		repo: 'erdu',
+		oauth: {
+			client_id: 'a09873e565c1aa168563',
+			client_secret: '9cd8cc472ae1094171f62c70f9907bc7ab9564ab',
+		},
+	})
+	gitment.render('comment-container')
+</script>
+
+</div>
+
+    </div>
+</section>
+    <footer class="footer">
+    <div class="container">
+        <div class="columns content">
+            <div class="column is-narrow has-text-centered">
+                &copy; 2018 yongli&nbsp;
+                Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+            </div>
+            <div class="column is-hidden-mobile"></div>
+
+            
+            <div class="column is-narrow">
+                <div class="columns is-mobile is-multiline is-centered">
+                
+                    
+                <a class="column" href="https://github.com/yonglijia">
+                    
+                    GitHub
+                    
+                </a>
+                
+                </div>
+            </div>
+            
+            
+        </div>
+    </div>
+</footer>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+<!-- test if the browser is outdated -->
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/outdated-browser/1.1.5/outdatedbrowser.min.js"></script>
+<script>
+    $(document).ready(function () {
+        //plugin function, place inside DOM ready function
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        })
+    });
+</script>
+
+<script>
+    window.FontAwesomeConfig = {
+        searchPseudoElements: true
+    }
+</script>
+
+
+    
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+<script>
+    MathJax.Hub.Config({
+        "HTML-CSS": {matchFontHeight: false},
+        SVG: {matchFontHeight: false},
+        CommonHTML: {matchFontHeight: false}
+    });
+</script>
+
+    
+    
+<script src="//cdnjs.cloudflare.com/ajax/libs/lightgallery/1.6.8/js/lightgallery-all.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/justifiedGallery/3.6.5/js/jquery.justifiedGallery.min.js"></script>
+<script>
+    (function ($) {
+        $(document).ready(function () {
+            if (typeof($.fn.lightGallery) === 'function') {
+                $('.article.gallery').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof($.fn.justifiedGallery) === 'function') {
+                $('.justified-gallery').justifiedGallery();
+            }
+        });
+    })(jQuery);
+</script>
+
+    
+    
+
+    
+
+
+<script src="/js/script.js"></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-mask"></div>
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="站内搜索" />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: '文章',
+                PAGES: '页面',
+                CATEGORIES: '分类',
+                TAGS: '标签',
+                UNTITLED: '(无标题)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js"></script>
+    
+</body>
+</html>
