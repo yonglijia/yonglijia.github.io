@@ -92,7 +92,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-04T18:23:20.000Z" itemprop="datePublished">14 分钟前</time>
+            <time datetime="2018-06-04T18:23:20.000Z" itemprop="datePublished">39 分钟前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -147,22 +147,26 @@
 <div class="comments">
     <h3 class="title is-4">评论</h3>
     
-<div id="comment-container"></div>
-<link rel="stylesheet" href="https://imsun.github.io/gitment/style/default.css">
-<script src="https://imsun.github.io/gitment/dist/gitment.browser.js"></script>
 <script>
-	var gitment = new Gitment({
-		id: '2018/06/05/readList-2018/',
-		owner: 'yonglijia',
-		repo: 'erdu',
-		oauth: {
-			client_id: 'a09873e565c1aa168563',
-			client_secret: '9cd8cc472ae1094171f62c70f9907bc7ab9564ab',
-		},
-	})
-	gitment.render('comment-container')
+    var disqus_config = function () {
+        this.page.url = 'http://jiayongli.top/2018/06/05/readList-2018/';
+        this.page.identifier = '2018/06/05/readList-2018/';
+        
+        this.language = 'zh';
+        
+    };
+    (function() {
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'jiayongli' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
 </script>
 
+<div id="disqus_thread">
+    
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
 </div>
 
     </div>
