@@ -88,12 +88,163 @@
         <article class="article content gallery" itemscope itemprop="blogPost">
     <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
         
+            <a href="/2018/10/11/node-stream/" itemprop="url">Node Stream运行机制</a>
+        
+    </h1>
+    <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
+        <span class="column is-narrow">
+            <time datetime="2018-10-11T11:54:11.000Z" itemprop="datePublished">6 分钟前</time>
+        </span>
+        
+        <span class="column is-narrow article-category">
+            <i class="far fa-folder"></i>
+            <a class="article-category-link" href="/categories/technology/">technology</a>
+        </span>
+        
+        
+        <span class="column is-narrow">
+            
+            
+            22 分钟 读完 (约 3317 字)
+        </span>
+        
+    </div>
+    <div class="article-entry is-size-6-mobile" itemprop="articleBody">
+    
+        <blockquote>
+<p>如果你正在学习Node，那么流一定是一个你需要掌握的概念。如果你想成为一个Node高手，那么流一定是武功秘籍中不可缺少的一个部分。</p>
+</blockquote>
+<p>引用自<a href="https://github.com/substack/stream-handbook" target="_blank" rel="noopener">Stream-Handbook</a>。由此可见，流对于深入学习Node的重要性。</p>
+<h3 id="流是什么？"><a href="#流是什么？" class="headerlink" title="流是什么？"></a>流是什么？</h3><p>你可以把流理解成一种传输的能力。通过流，可以以平缓的方式，无副作用的将数据传输到目的地。在Node中，Node Stream创建的流都是专用于String和Buffer上的，一般情况下使用Buffer。<strong>Stream表示的是一种传输能力，Buffer是传输内容的载体</strong> (<strong>可以这样理解，Stream：外卖小哥哥， Buffer：你的外卖</strong>)。创建流的时候将ObjectMode设置true ，Stream同样可以传输任意类型的JS对象（除了null，null在流中有特殊用途）。</p>
+<h3 id="为什么要使用流？"><a href="#为什么要使用流？" class="headerlink" title="为什么要使用流？"></a>为什么要使用流？</h3><p>现在有个需求，我们要向客户端传输一个大文件。如果采用下面的方式</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> server = <span class="built_in">require</span>(<span class="string">'http'</span>).createServer();</span><br><span class="line"></span><br><span class="line">server.on(<span class="string">'request'</span>, (req, res) =&gt; &#123;</span><br><span class="line">  fs.readFile(<span class="string">'./big.file'</span>, (err, data) =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (err) <span class="keyword">throw</span> err;</span><br><span class="line">    res.end(data);</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">server.listen(<span class="number">8000</span>);</span><br></pre></td></tr></table></figure>
+<p>每次接收一个请求，就要把这个大文件读入内存，然后再传输给客户端。通过这种方式可能会产生以下三种后果：</p>
+<ul>
+<li>内存耗尽</li>
+<li>拖慢其他进程</li>
+<li>增加垃圾回收器的负载</li>
+</ul>
+<p>所以这种方式在传输大文件的情况下，不是一个好的方案。并发量一大，几百个请求过来很容易就将内存耗尽。</p>
+<p>如果采用流呢？</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> server = <span class="built_in">require</span>(<span class="string">'http'</span>).createServer();</span><br><span class="line"></span><br><span class="line">server.on(<span class="string">'request'</span>, (req, res) =&gt; &#123;</span><br><span class="line">  <span class="keyword">const</span> src = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line">  src.pipe(res);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">server.listen(<span class="number">8000</span>);</span><br></pre></td></tr></table></figure>
+<p>采用这种方式，不会占用太多内存，读取一点就传输一点，整个过程平缓进行，非常优雅。如果想在传输的过程中，想对文件进行处理，比如压缩、加密等等，也很好扩展（后面会具体介绍）。</p>
+<p>流在Node中无处不在。从下图中可以看出：</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181008153896256368933.png" alt="20181008153896256368933png"></p>
+<h3 id="Stream分类"><a href="#Stream分类" class="headerlink" title="Stream分类"></a>Stream分类</h3><p>Stream分为四大类：</p>
+<ul>
+<li>Readable（可读流）</li>
+<li>Writable （可写流）</li>
+<li>Duplex （双工流）</li>
+<li>Transform （转换流）</li>
+</ul>
+<h4 id="Readable"><a href="#Readable" class="headerlink" title="Readable"></a>Readable</h4><p>可读流中的数据，在以下两种模式下都能产生数据。</p>
+<ul>
+<li>Flowing Mode</li>
+<li>Non-Flowing Mode</li>
+</ul>
+<p>两种模式下，触发的方式以及消耗的方式不一样。</p>
+<p>Flowing Mode：数据会源源不断地生产出来，形成“流动”现象。监听流的<code>data</code>事件便可进入该模式。</p>
+<p>Non-Flowing Mode下：需要显示地调用<code>read()</code>方法，才能获取数据。</p>
+<p>两种模式可以互相转换</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181008153896304252946.png" alt="20181008153896304252946png"></p>
+<p>流的初始状态是Null，通过监听<code>data</code>事件，或者<code>pipe</code>方法，调用<code>resume</code>方法，将流转为<code>Flowing Mode</code>状态。<code>Flowing Mode</code>状态下调用<code>pause</code>方法，将流置为<code>Non-Flowing Mode</code>状态。<code>Non-Flowing Mode</code>状态下调用<code>resume</code>方法，同样可以将流置为<code>Flowing Mode</code>状态。</p>
+<p>下面详细介绍下两种模式下，Readable流的运行机制。</p>
+<h5 id="Flowing-Mode"><a href="#Flowing-Mode" class="headerlink" title="Flowing Mode"></a>Flowing Mode</h5><p>在Flowing Mode状态下，创建的myReadable读流，直接监听data事件，数据就源源不断的流出来进行消费了。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">myReadable.on(<span class="string">'data'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">chunk</span>)</span>&#123;</span><br><span class="line">      consume(chunk);<span class="comment">//消费流</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>一旦监听data事件之后，Readable内部的流程如下图所示</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181009153904731891066.png" alt="20181009153904731891066png"></p>
+<p>核心的方法是流内部的read方法，它在参数n为不同值时，分别触发不同的操作。下面描述中的<strong>hightwatermark</strong>表示的是流内部的缓冲池的大小。</p>
+<ul>
+<li>n=undefined（消费数据，并触发一次可读流）</li>
+<li>n=0（触发一次可读流，但是不会消费）</li>
+<li>n&gt;hightwatermark（修改hightwatermark的值）</li>
+<li>n&lt;buffer的总数据数（直接返回n个字节的数据）</li>
+<li>n&gt;buffer (可以返回null，也可以返回buffer所有的数据（当时最后一次读取）)</li>
+</ul>
+<p>图中黄色标识的<strong>_read()</strong>，是用户实现流所需要自己实现的方法，这个方法就是实际读取流的方式（可以这样理解，外卖平台给你提供外卖的能力，那<strong>_read()</strong>方法就相当于你下单点外卖）。后面会详细介绍如何实现<strong>_read</strong>方法。</p>
+<p>以上的流程可以描述为：监听data方法，Readable内部就会调用read方法，来进行触发读流操作，通过判断是同步还是异步读取，来决定读取的数据是否放入缓冲区。如果为异步的，那么就要调用flow方法，来继续触发read方法，来读取流，同时根据size参数判定是否emit(‘data’)来消费流，循环读取。如果是同步的，那就emit(‘data’)来消费流，同时继续触发read方法，来读取流。一旦push方法传入的是null，整个流就结束了。</p>
+<p>从使用者的角度来看，在这种模式下，你可以通过下面的方式来使用流</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'./fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'./writeFile.js'</span>);</span><br><span class="line">readFile.on(<span class="string">'data'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">chunk</span>)</span>&#123;</span><br><span class="line">      writeFile1.write(chunk);</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<h5 id="Non-Flowing-Mode"><a href="#Non-Flowing-Mode" class="headerlink" title="Non-Flowing Mode"></a>Non-Flowing Mode</h5><p>相对于Flowing mode，Non-Flowing Mode要相对简单很多。</p>
+<p>消费该模式下的流，需要使用下面的方式</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">myReadable.on(‘readable’,<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">     <span class="keyword">const</span> chunk = myReadable.read()</span><br><span class="line">     consume(chunk);<span class="comment">//消费流</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>在Non-Flowing Mode下，Readable内部的流程如下图：</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181010153915295064626.png" alt="20181010153915295064626.png"></p>
+<p>从这个图上看出，你要实现该模式的读流，同样要实现一个<strong>_read</strong>方法。</p>
+<p>整个流程如下：监听readable方法，Readable内部就会调用read方法。调用用户实现的<strong>_read</strong>方法，来push数据到缓冲池，然后发送emit readable事件，通知用户端消费。</p>
+<p>从使用者的角度来看，你可以通过下面的方式来使用该模式下的流</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'./writeFile.js'</span>);</span><br><span class="line"></span><br><span class="line">readFile.on(<span class="string">'readable'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">chunk</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">null</span> !== (chunk = myReadable.read())) &#123;</span><br><span class="line">        writeFile.write(chunk);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<h4 id="Writable"><a href="#Writable" class="headerlink" title="Writable"></a>Writable</h4><p>相对于读流，写流的机制就更容易理解了。</p>
+<p>写流使用下面的方式进行数据写入</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">myWrite.write(chunk);</span><br></pre></td></tr></table></figure>
+<p>调用write后，内部Writable的流程如下图所示</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181009153904892352425.png" alt="20181009153904892352425png"></p>
+<p>类似于读流，实现一个写流，同样需要用户实现一个<strong>_write</strong>方法。</p>
+<p>整个流程是这样的：调用<strong>write</strong>之后，会首先判定是否要写入缓冲区。如果不需要，那就调用用户实现的<strong>_write</strong>方法，将流写入到相应的地方，<strong>_write</strong>会调用一个<strong>writeable</strong>内部的一个回调函数。</p>
+<p>从使用者的角度来看，使用一个写流，采用下面的代码所示的方式。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'./writeFile.js'</span>);</span><br><span class="line"></span><br><span class="line">readFile.on(<span class="string">'data'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">chunk</span>) </span>&#123;</span><br><span class="line">    writeFile.write(chunk);</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>可以看到，使用写流是非常简单的。</p>
+<p>我们先讲解一下如何实现一个读流和写流，再来看Duplex和Transform是什么，因为了解了如何实现一个读流和写流，再来理解Duplex和Transform就非常简单了。</p>
+<h4 id="实现自定义的Readable"><a href="#实现自定义的Readable" class="headerlink" title="实现自定义的Readable"></a>实现自定义的Readable</h4><p>实现自定义的Readable，只需要实现一个<strong>_read</strong>方法即可，需要在<strong>_read</strong>方法中调用<strong>push</strong>方法来实现数据的生产。如下面的代码所示：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> Readable = <span class="built_in">require</span>(<span class="string">'stream'</span>).Readable;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyReadable</span> <span class="keyword">extends</span> <span class="title">Readable</span> </span>&#123;</span><br><span class="line">    <span class="keyword">constructor</span>(dataSource, options) &#123;</span><br><span class="line">        <span class="keyword">super</span>(options);</span><br><span class="line">        <span class="keyword">this</span>.dataSource = dataSource;</span><br><span class="line">    &#125;</span><br><span class="line">    _read() &#123;</span><br><span class="line">        <span class="keyword">const</span> data = <span class="keyword">this</span>.dataSource.makeData();</span><br><span class="line">        setTimeout(<span class="function"><span class="params">()</span>=&gt;</span>&#123;</span><br><span class="line">            <span class="keyword">this</span>.push(data);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 模拟资源池</span></span><br><span class="line"><span class="keyword">const</span> dataSource = &#123;</span><br><span class="line">    data: <span class="keyword">new</span> <span class="built_in">Array</span>(<span class="number">10</span>).fill(<span class="string">'-'</span>),</span><br><span class="line">    makeData() &#123;</span><br><span class="line">        <span class="keyword">if</span> (!dataSource.data.length) <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">return</span> dataSource.data.pop();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> myReadable = <span class="keyword">new</span> MyReadable(dataSource,);</span><br><span class="line"></span><br><span class="line">myReadable.on(<span class="string">'readable'</span>, () =&gt; &#123;</span><br><span class="line">    <span class="keyword">let</span> chunk;</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">null</span> !== (chunk = myReadable.read())) &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(chunk);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<h4 id="实现自定义的writable"><a href="#实现自定义的writable" class="headerlink" title="实现自定义的writable"></a>实现自定义的writable</h4><p>实现自定义的writable，只需要实现一个<strong>_write</strong>方法即可。在<strong>_write</strong>中消费<strong>chunk</strong>写入到相应地方，并且调用<strong>callback</strong>回调。如下面代码所示：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> Writable = <span class="built_in">require</span>(<span class="string">'stream'</span>).Writable;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Mywritable</span> <span class="keyword">extends</span>  <span class="title">Writable</span></span>&#123;</span><br><span class="line">    constuctor(options)&#123;</span><br><span class="line">        <span class="keyword">super</span>(options);</span><br><span class="line">    &#125;</span><br><span class="line">    _write(chunk,endcoding,callback)&#123;</span><br><span class="line">        <span class="built_in">console</span>.log(chunk);</span><br><span class="line">        callback &amp;&amp; callback();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">const</span> myWritable = <span class="keyword">new</span> Mywritable();</span><br></pre></td></tr></table></figure>
+<h4 id="Duplex"><a href="#Duplex" class="headerlink" title="Duplex"></a>Duplex</h4><p><strong>双工流</strong>：简单理解，就是讲一个Readable流和一个Writable流绑定到一起，它既可以用来做读流，又可以用来做写流。</p>
+<p>实现一个Duplex流，你需要同时实现<strong>_read</strong>和<strong>_write</strong>方法。</p>
+<p>有一点<strong>需要注意</strong>的是：它所包含的 Readable流和Writable流是完全独立，互不影响的两个流，两个流使用的不是同一个缓冲区。通过下面的代码可以验证</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 模拟资源池1</span></span><br><span class="line"><span class="keyword">const</span> dataSource1 = &#123;</span><br><span class="line">    data: <span class="keyword">new</span> <span class="built_in">Array</span>(<span class="number">10</span>).fill(<span class="string">'a'</span>),</span><br><span class="line">    makeData() &#123;</span><br><span class="line">        <span class="keyword">if</span> (!dataSource1.data.length) <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">return</span> dataSource1.data.pop();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// 模拟资源池2</span></span><br><span class="line"><span class="keyword">const</span> dataSource2 = &#123;</span><br><span class="line">    data: <span class="keyword">new</span> <span class="built_in">Array</span>(<span class="number">10</span>).fill(<span class="string">'b'</span>),</span><br><span class="line">    makeData() &#123;</span><br><span class="line">        <span class="keyword">if</span> (!dataSource2.data.length) <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">return</span> dataSource2.data.pop();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> Readable = <span class="built_in">require</span>(<span class="string">'stream'</span>).Readable;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyReadable</span> <span class="keyword">extends</span> <span class="title">Readable</span> </span>&#123;</span><br><span class="line">    <span class="keyword">constructor</span>(dataSource, options) &#123;</span><br><span class="line">        <span class="keyword">super</span>(options);</span><br><span class="line">        <span class="keyword">this</span>.dataSource = dataSource;</span><br><span class="line">    &#125;</span><br><span class="line">    _read() &#123;</span><br><span class="line">        <span class="keyword">const</span> data = <span class="keyword">this</span>.dataSource.makeData();</span><br><span class="line">        setTimeout(<span class="function"><span class="params">()</span>=&gt;</span>&#123;</span><br><span class="line">            <span class="keyword">this</span>.push(data);</span><br><span class="line">        &#125;)</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> Writable = <span class="built_in">require</span>(<span class="string">'stream'</span>).Writable;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyWritable</span> <span class="keyword">extends</span> <span class="title">Writable</span></span>&#123;</span><br><span class="line">    <span class="keyword">constructor</span>(options)&#123;</span><br><span class="line">        <span class="keyword">super</span>(options);</span><br><span class="line">    &#125;</span><br><span class="line">    _write(chunk, encoding, callback) &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(chunk.toString());</span><br><span class="line">        callback &amp;&amp; callback();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> Duplex = <span class="built_in">require</span>(<span class="string">'stream'</span>).Duplex;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyDuplex</span> <span class="keyword">extends</span> <span class="title">Duplex</span></span>&#123;</span><br><span class="line">    <span class="keyword">constructor</span>(dataSource,options) &#123;</span><br><span class="line">        <span class="keyword">super</span>(options);</span><br><span class="line">        <span class="keyword">this</span>.dataSource = dataSource;</span><br><span class="line">    &#125;</span><br><span class="line">    _read() &#123;</span><br><span class="line">        <span class="keyword">const</span> data = <span class="keyword">this</span>.dataSource.makeData();</span><br><span class="line">        setTimeout(<span class="function"><span class="params">()</span>=&gt;</span>&#123;</span><br><span class="line">            <span class="keyword">this</span>.push(data);</span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">    _write(chunk, encoding, callback) &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(chunk.toString());</span><br><span class="line">        callback &amp;&amp; callback();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> myWritable = <span class="keyword">new</span> MyWritable();</span><br><span class="line"><span class="keyword">const</span> myReadable = <span class="keyword">new</span> MyReadable(dataSource1);</span><br><span class="line"><span class="keyword">const</span> myDuplex = <span class="keyword">new</span> MyDuplex(dataSource1);</span><br><span class="line">myReadable.pipe(myDuplex).pipe(myWritable);</span><br></pre></td></tr></table></figure>
+<p>打印的结果是</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">abababababababababab</span><br></pre></td></tr></table></figure>
+<p>从这个结果可以看出，<code>myReadable.pipe(myDuplex)</code>，myDuplex充当的是写流，写入的内容是a；<code>myDuplex.pipe(myWritable)</code>，myDuplex充当的是读流，往myWritable写的却是b；所以说它所包含的 Readable流和Writable流是完全独立的。</p>
+<h4 id="Transform"><a href="#Transform" class="headerlink" title="Transform"></a>Transform</h4><p>理解了<strong>Duplex</strong>，就更好理解<strong>Transform</strong>了。<strong>Transform</strong>是一个转换流，它既有读的功能又有写的功能，但是它和<strong>Duplex</strong>不同的是，它的读流和写流共用同一个缓冲区；也就是说，通过它读入什么，那它就能写入什么。</p>
+<p>实现一个<strong>Transform</strong>，你只需要实现一个<strong>_transform</strong>方法。比如最简单的<strong>Transform</strong>:<strong>PassThrough</strong>，其源代码如下所示</p>
+<p><img src="http://ody1t82mr.bkt.clouddn.com/20181009153905044977496.png" alt="20181009153905044977496png"></p>
+<p><strong>PassThrough</strong>就是一个<strong>Transform</strong>，但是这个转换流，什么也没做，相当于一个透明的转换流。可以看到<strong>_transform</strong>中什么都没有，只是简单的将数据进行回调。</p>
+<p>如果我们在这个环节做些扩展，只需要在<strong>_transform</strong>中直接扩展就行了。比如我们可以对流进行压缩，加密，混淆等等操作。</p>
+<h3 id="BackPress"><a href="#BackPress" class="headerlink" title="BackPress"></a>BackPress</h3><p>最后介绍一个流中非常重要的一个概念：背压。要了解这个，我们首先来看下<strong>pipe</strong>和<strong>highWaterMaker</strong>是什么。</p>
+<h5 id="pipe"><a href="#pipe" class="headerlink" title="pipe"></a>pipe</h5><p>首先看下下面的代码</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'./fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'./writeFile.js'</span>);</span><br><span class="line">readFile.pipe(writeFile);</span><br></pre></td></tr></table></figure>
+<p>上面的代码和下面是等价的</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'./fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'./big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'./writeFile.js'</span>);</span><br><span class="line">readFile.on(<span class="string">'data'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">data</span>)</span>&#123;</span><br><span class="line">    <span class="keyword">var</span> flag = ws.write(data);</span><br><span class="line">    <span class="keyword">if</span>(!flag)&#123; <span class="comment">// 当前写流缓冲区已满，暂停读数据</span></span><br><span class="line">        readFile.pause();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;)</span><br><span class="line">writeFile.on(<span class="string">'drain'</span>,<span class="function"><span class="keyword">function</span>(<span class="params"></span>))</span>&#123;</span><br><span class="line">    readFile.resume();<span class="comment">// 当前写流缓冲区已清空，重新开始读流</span></span><br><span class="line">&#125;</span><br><span class="line">readFile.on(<span class="string">'end'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">data</span>)</span>&#123;</span><br><span class="line">    writeFile.end();<span class="comment">//将写流缓冲区的数据全部写入，并且关闭写入的文件</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p><strong>pipe</strong>所做的操作就是相当于为写流和读流自动做了速度的匹配。</p>
+<p>读写流速度不匹配的情况下，一般情况下不会造成什么问题，但是会造成内存增加。内存消耗增加，就有可能会带来一系列的问题。所以在使用的流的时候，强烈推荐使用<strong>pipe</strong>。</p>
+<h5 id="highWaterMaker"><a href="#highWaterMaker" class="headerlink" title="highWaterMaker"></a>highWaterMaker</h5><p><strong>highWaterMaker</strong>说白了，就是定义缓冲区的大小。</p>
+<ul>
+<li>默认16Kb（Readable最大8M)</li>
+<li>可以自定义</li>
+</ul>
+<p><strong>背压</strong>的概念可以理解为：为了防止读写流速度不匹配而产生的一种调整机制；背压该调整机制的触发时机，受限于<strong>highWaterMaker</strong>设置的大小。</p>
+<p>如上面的代码<code>var flag = ws.write(data);</code>，一旦写流的缓冲区满了，那<code>flag</code>就会置为<strong>false</strong>，反向促进读流的速度调整。</p>
+<h3 id="Stream的应用场景"><a href="#Stream的应用场景" class="headerlink" title="Stream的应用场景"></a>Stream的应用场景</h3><p>主要有以下场景</p>
+<p>1.文件操作(复制，压缩，解压，加密等)</p>
+<p>下面的就很容易就实现了文件复制的功能。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'big_copy.file'</span>);</span><br><span class="line">readFile.pipe(writeFile);</span><br></pre></td></tr></table></figure>
+<p>那我们想在复制的过程中对文件进行压缩呢？</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"><span class="keyword">const</span> readFile = fs.createReadStream(<span class="string">'big.file'</span>);</span><br><span class="line"><span class="keyword">const</span> writeFile = fs.createWriteStream(<span class="string">'big.gz'</span>);</span><br><span class="line"><span class="keyword">const</span> zlib = <span class="built_in">require</span>(<span class="string">'zlib'</span>);</span><br><span class="line">readFile.pipe(zlib.createGzip()).pipe(writeFile);</span><br></pre></td></tr></table></figure>
+<p>实现解压、加密也是类似的。</p>
+<p>2.静态文件服务器</p>
+<p>比如需要返回一个<strong>html</strong>，可以使用如下代码。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> http = <span class="built_in">require</span>(<span class="string">'http'</span>);</span><br><span class="line"><span class="keyword">var</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line">http.createServer(<span class="function"><span class="keyword">function</span>(<span class="params">req,res</span>)</span>&#123;</span><br><span class="line">    fs.createReadStream(<span class="string">'./a.html'</span>).pipe(res);</span><br><span class="line">&#125;).listen(<span class="number">8000</span>);</span><br></pre></td></tr></table></figure>
+
+    
+    </div>
+    
+    
+</article>
+
+
+
+
+    
+        <article class="article content gallery" itemscope itemprop="blogPost">
+    <h1 class="article-title is-size-3 is-size-4-mobile" itemprop="name">
+        
             <a href="/2018/08/09/git-operate/" itemprop="url">git常用操作指南</a>
         
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-08-09T07:15:52.000Z" itemprop="datePublished">4 分钟前</time>
+            <time datetime="2018-08-09T07:15:52.000Z" itemprop="datePublished">2 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -146,7 +297,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-10T01:50:08.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-10T01:50:08.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -186,7 +337,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-06T16:22:09.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-06T16:22:09.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -232,7 +383,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-06T16:11:57.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-06T16:11:57.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -272,7 +423,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-04T18:32:05.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-04T18:32:05.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -315,7 +466,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-04T18:27:15.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-04T18:27:15.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -366,7 +517,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-04T18:23:20.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-04T18:23:20.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
@@ -406,7 +557,7 @@
     </h1>
     <div class="article-meta columns is-variable is-1 is-multiline is-mobile is-size-7-mobile">
         <span class="column is-narrow">
-            <time datetime="2018-06-04T17:39:50.000Z" itemprop="datePublished">2 个月前</time>
+            <time datetime="2018-06-04T17:39:50.000Z" itemprop="datePublished">4 个月前</time>
         </span>
         
         <span class="column is-narrow article-category">
